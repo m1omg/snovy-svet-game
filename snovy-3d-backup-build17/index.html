@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Snový Svet 3D</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #05000f;
+        font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; color: #f0e8ff; }
+    #gl { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+    /* ---------- HUD ---------- */
+    #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center;
+        gap: 14px; padding: 10px 16px; pointer-events: none;
+        background: linear-gradient(180deg, rgba(10,0,25,0.55), rgba(10,0,25,0)); z-index: 10; }
+    #hud .item { font-size: 16px; font-weight: bold; text-shadow: 0 0 8px rgba(176,96,255,0.6); white-space: nowrap; }
+    #hudRealm { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    #energyWrap { width: 120px; height: 12px; border: 1px solid rgba(176,96,255,0.6);
+        border-radius: 6px; overflow: hidden; background: rgba(0,0,0,0.4); }
+    #energyFill { height: 100%; width: 100%; background: linear-gradient(90deg, #6040a0, #a060ff); transition: width 0.1s linear; }
+    #bossBar { position: fixed; top: 48px; left: 50%; transform: translateX(-50%); width: min(460px, calc(100vw - 32px));
+        z-index: 11; pointer-events: none; text-align: center; color: #f6eaff; font-size: 13px; font-weight: bold;
+        text-shadow: 0 0 10px rgba(255,80,160,0.8); }
+    #bossBar.hidden { display: none; }
+    #bossTrack { height: 11px; margin-top: 4px; border: 1px solid rgba(255,150,220,0.65);
+        border-radius: 8px; overflow: hidden; background: rgba(20,0,20,0.6); box-shadow: 0 0 18px rgba(255,80,180,0.25); }
+    #bossFill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff3050, #ffb040); transition: width 0.12s linear; }
+    #pauseBtn { pointer-events: auto; cursor: pointer; border: 1px solid rgba(176,96,255,0.6);
+        background: rgba(40,20,70,0.6); color: #f0e8ff; border-radius: 8px; padding: 4px 12px; font-size: 16px; }
+    #pauseBtn:hover { background: rgba(80,40,130,0.8); }
+
+    /* ---------- Overlays ---------- */
+    .overlay { position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 24px;
+        z-index: 20; background: radial-gradient(ellipse at center, rgba(20,5,40,0.82), rgba(5,0,15,0.94)); }
+    .overlay.hidden, #hud.hidden { display: none; }
+    .panel { background: rgba(25,10,45,0.7); border: 1px solid rgba(176,96,255,0.35);
+        border-radius: 18px; padding: 28px 32px; max-width: 540px; width: 92%;
+        box-shadow: 0 0 40px rgba(120,60,200,0.35); backdrop-filter: blur(4px); }
+    h1 { font-size: clamp(26px, 6vw, 44px); margin-bottom: 6px; text-shadow: 0 0 18px rgba(176,96,255,0.8); }
+    h2 { font-size: clamp(22px, 5vw, 34px); margin-bottom: 8px; text-shadow: 0 0 14px rgba(176,96,255,0.7); }
+    .sub { opacity: 0.85; font-size: 15px; margin-bottom: 6px; }
+    .controls { opacity: 0.9; font-size: 14px; margin: 12px 0; line-height: 1.7; }
+    .credits { opacity: 0.6; font-size: 12px; margin-top: 16px; }
+    button.big { cursor: pointer; border: none; border-radius: 12px; padding: 13px 30px;
+        font-size: 19px; font-weight: bold; color: #fff; margin-top: 6px;
+        background: linear-gradient(135deg, #7a40c0, #b060ff); box-shadow: 0 0 22px rgba(176,96,255,0.55);
+        transition: transform 0.12s, box-shadow 0.12s; }
+    button.big:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 32px rgba(176,96,255,0.85); }
+    button.ghost { cursor: pointer; border: 1px solid rgba(176,96,255,0.5); background: rgba(40,20,70,0.5);
+        color: #f0e8ff; border-radius: 10px; padding: 9px 20px; font-size: 15px; margin-top: 6px; }
+    button.ghost:hover { background: rgba(80,40,130,0.7); }
+    .diff-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+    .selector-label { opacity: 0.75; font-size: 13px; margin-top: 8px; }
+    .diff-btn, .visual-btn, .ctrl-btn { cursor: pointer; border: 1px solid rgba(176,96,255,0.4); background: rgba(40,20,70,0.5);
+        color: #f0e8ff; border-radius: 10px; padding: 8px 16px; font-size: 14px; }
+    .diff-btn.active, .visual-btn.active, .ctrl-btn.active { background: linear-gradient(135deg, #7a40c0, #b060ff); border-color: transparent; box-shadow: 0 0 14px rgba(176,96,255,0.6); }
+    .ctrlmode-block { display: none; }
+    /* ---------- Predefinovateľné ovládanie ---------- */
+    #controlsList { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+    .ctrl-row { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        background: rgba(40,20,70,0.4); border: 1px solid rgba(176,96,255,0.25);
+        border-radius: 10px; padding: 8px 14px; }
+    .ctrl-label { font-size: 15px; opacity: 0.9; }
+    .ctrl-key { cursor: pointer; min-width: 104px; border: 1px solid rgba(176,96,255,0.5);
+        background: rgba(60,30,100,0.6); color: #f0e8ff; border-radius: 8px; padding: 6px 12px;
+        font-size: 14px; font-weight: bold; font-family: monospace; }
+    .ctrl-key:hover { background: rgba(90,50,150,0.8); }
+    .ctrl-key.listening { background: linear-gradient(135deg, #7a40c0, #b060ff); border-color: transparent;
+        box-shadow: 0 0 14px rgba(176,96,255,0.7); animation: ctrlPulse 0.9s ease-in-out infinite; }
+    @keyframes ctrlPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+    /* ---------- Toast (napr. extra život) ---------- */
+    #toast { position: fixed; top: 88px; left: 50%; transform: translateX(-50%);
+        z-index: 18; pointer-events: none; padding: 10px 22px; border-radius: 12px;
+        background: rgba(30,12,55,0.82); border: 1px solid rgba(255,224,96,0.6);
+        color: #ffe9a8; font-size: 19px; font-weight: bold; text-shadow: 0 0 12px rgba(255,200,80,0.8);
+        opacity: 0; transition: opacity 0.4s; }
+    #toast.hidden { display: none; }
+    .badge { position: fixed; bottom: 8px; right: 12px; font-size: 11px; opacity: 0.45; z-index: 5; }
+    #buildTag { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: bold;
+        color: #6effc0; background: rgba(0,0,0,0.35); border: 1px solid rgba(110,255,192,0.4);
+        border-radius: 8px; padding: 3px 12px; letter-spacing: 0.5px; }
+    /* Diagnostický panel – číry DOM, prežije aj zlyhanie WebGL */
+    #diag { position: fixed; top: 8px; left: 8px; z-index: 30; font-family: monospace;
+        font-size: 12px; line-height: 1.45; color: #d8ffe8; background: rgba(0,0,0,0.62);
+        border: 1px solid rgba(110,255,192,0.4); border-radius: 8px; padding: 8px 10px;
+        max-width: 70vw; pointer-events: none; white-space: pre-wrap; }
+    #diag.hidden { display: none; }
+    #diagHint { position: fixed; bottom: 8px; left: 12px; font-size: 11px; opacity: 0.4; z-index: 5; }
+    #hitFlash { position: fixed; inset: 0; background: #ff2040; opacity: 0; pointer-events: none; z-index: 15; }
+    /* ---------- Dotykové ovládanie: D-Pad + plávajúci joystick ---------- */
+    #touchControls { position: fixed; left: 0; right: 0; bottom: 0; height: 210px; pointer-events: none; z-index: 14; display: none; }
+    #touchControls.active { display: block; }
+    #dpad { position: absolute; left: 18px; bottom: 18px; width: 168px; height: 168px; pointer-events: auto;
+        display: grid; gap: 5px; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+    .dpad-btn { display: flex; align-items: center; justify-content: center; background: rgba(120, 70, 200, 0.32);
+        border: 1px solid rgba(176, 96, 255, 0.5); border-radius: 10px; color: #e8dcff; font-size: 1.3rem;
+        user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; transition: background 0.08s; }
+    .dpad-btn.pressed, .dpad-btn:active { background: rgba(176, 96, 255, 0.8); box-shadow: 0 0 14px rgba(176,96,255,0.7); }
+    #dpad-ul { grid-area: 1 / 1; } #dpad-up { grid-area: 1 / 2; } #dpad-ur { grid-area: 1 / 3; }
+    #dpad-left { grid-area: 2 / 1; } #dpad-right { grid-area: 2 / 3; }
+    #dpad-dl { grid-area: 3 / 1; } #dpad-down { grid-area: 3 / 2; } #dpad-dr { grid-area: 3 / 3; }
+    #actionButtons { position: absolute; right: 18px; bottom: 18px; width: 156px; height: 156px; pointer-events: auto; }
+    .action-btn { position: absolute; width: 78px; height: 78px; border-radius: 50%; display: flex; align-items: center;
+        justify-content: center; color: #fff; font-size: 0.82rem; font-weight: bold; letter-spacing: 0.5px;
+        user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.5); transition: transform 0.08s, box-shadow 0.08s; }
+    .action-btn.pressed, .action-btn:active { transform: scale(0.94); }
+    #btn-jump { right: 0; bottom: 50px; background: linear-gradient(135deg, #7a40c0, #b060ff);
+        border: 3px solid rgba(200, 150, 255, 0.8); box-shadow: 0 4px 16px rgba(176,96,255,0.5); }
+    #btn-jump.pressed { box-shadow: 0 0 24px rgba(176,96,255,0.95); }
+    #btn-beam { left: 0; bottom: 0; background: linear-gradient(135deg, #3a6bd0, #62a8ff);
+        border: 3px solid rgba(150, 200, 255, 0.8); box-shadow: 0 4px 16px rgba(80,140,255,0.5); }
+    #btn-beam.pressed { box-shadow: 0 0 24px rgba(96,168,255,0.95); }
+    #joyBase, #joyKnob { position: fixed; pointer-events: none; z-index: 13; display: none; }
+    #joyBase { width: 94px; height: 94px; margin: -47px 0 0 -47px; border-radius: 50%;
+        border: 2px solid rgba(176, 96, 255, 0.55); background: rgba(120, 60, 200, 0.14); }
+    #joyKnob { width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%;
+        background: rgba(176, 96, 255, 0.45); border: 2px solid rgba(220, 180, 255, 0.75); }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<!-- červený záblesk pri zásahu -->
+<div id="hitFlash"></div>
+
+<!-- krátka oznamovacia bublina (extra život ap.) -->
+<div id="toast" class="hidden"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+    <span class="item" id="hudHp" title="HP (3 zásahy = 1 život)">❤❤❤</span>
+    <span class="item" id="hudLives">⭐ 12</span>
+    <span class="item" id="hudRealm">Ríša 1</span>
+    <span class="item" id="hudScore">Skóre: 0</span>
+    <div id="energyWrap"><div id="energyFill"></div></div>
+    <button id="pauseBtn">⏸</button>
+</div>
+
+<div id="bossBar" class="hidden">
+    <div id="bossName">BOSS</div>
+    <div id="bossTrack"><div id="bossFill"></div></div>
+</div>
+
+<!-- Dotykový D-Pad (režim D-Pad, 8 smerov) + plávajúci joystick (režim Swipe) -->
+<div id="touchControls">
+    <div id="dpad">
+        <div class="dpad-btn" id="dpad-ul">◤</div>
+        <div class="dpad-btn" id="dpad-up">▲</div>
+        <div class="dpad-btn" id="dpad-ur">◥</div>
+        <div class="dpad-btn" id="dpad-left">◀</div>
+        <div class="dpad-btn" id="dpad-right">▶</div>
+        <div class="dpad-btn" id="dpad-dl">◣</div>
+        <div class="dpad-btn" id="dpad-down">▼</div>
+        <div class="dpad-btn" id="dpad-dr">◢</div>
+    </div>
+    <div id="actionButtons">
+        <div class="action-btn" id="btn-beam">LÚČ</div>
+        <div class="action-btn" id="btn-jump">SKOK</div>
+    </div>
+</div>
+<div id="joyBase"></div>
+<div id="joyKnob"></div>
+
+<!-- Menu -->
+<div id="menuScreen" class="overlay">
+    <div class="panel">
+        <h1 id="uiTitle">🌙 Snový Svet 3D 🌙</h1>
+        <div class="sub" id="uiSubtitle">Putuj v troch rozmeroch cez snové ríše</div>
+        <div class="diff-row">
+            <button class="diff-btn" data-diff="EASY" id="diffEasy">🟢 Ľahká</button>
+            <button class="diff-btn active" data-diff="MEDIUM" id="diffMedium">🟡 Stredná</button>
+            <button class="diff-btn" data-diff="HARD" id="diffHard">🔴 Ťažká</button>
+        </div>
+        <div class="diff-row">
+            <button class="ctrl-btn mm-toggle" id="mobileModeMenu">📱 Mobilný režim: Vyp</button>
+            <button class="ctrl-btn dev-toggle" id="devMenu">🛠 Dev mód: Vyp</button>
+        </div>
+        <div class="selector-label" id="visualLabel">Vizuál:</div>
+        <div class="diff-row">
+            <button class="visual-btn active" data-visual="model" id="visual3dMenu">3D modely</button>
+            <button class="visual-btn" data-visual="billboard" id="visual2dMenu">2D billboardy</button>
+        </div>
+        <div class="ctrlmode-block">
+            <div class="selector-label" id="controlModeLabel">Ovládanie dotykom:</div>
+            <div class="diff-row">
+                <button class="ctrl-btn active" data-ctrl="swipe" id="ctrlSwipeMenu">👆 Swipe</button>
+                <button class="ctrl-btn" data-ctrl="dpad" id="ctrlDpadMenu">🎮 D-Pad</button>
+            </div>
+            <div class="diff-row">
+                <button class="ctrl-btn joy-toggle" id="joyToggleMenu">🕹 Joystick: Zap</button>
+            </div>
+        </div>
+        <div class="controls" id="uiControls">🎮 Šípky = pohyb · Space = skok (3×) · Ctrl = baterka</div>
+        <button class="big" id="startBtn">Vstúp do Sna</button><br>
+        <button class="ghost" id="openControlsMenu">⌨ Ovládanie</button>
+        <button class="ghost" id="langBtn">🌐 English</button>
+        <div class="credits" id="uiCredits">Ďakujem za obrázok hlavného hrdinu kamarátovi Nerovi 💙</div>
+        <div id="buildTag">build 17</div>
+    </div>
+</div>
+
+<!-- Pause -->
+<div id="pauseScreen" class="overlay hidden">
+    <div class="panel">
+        <h2 id="pausedTitle">⏸️ PAUZA</h2>
+        <button class="big" id="resumeBtn">Pokračovať</button><br>
+        <div class="diff-row">
+            <button class="ctrl-btn mm-toggle" id="mobileModePause">📱 Mobilný režim: Vyp</button>
+            <button class="ctrl-btn dev-toggle" id="devPause">🛠 Dev mód: Vyp</button>
+        </div>
+        <div class="selector-label" id="pauseVisualLabel">Vizuál:</div>
+        <div class="diff-row">
+            <button class="visual-btn active" data-visual="model" id="visual3dPause">3D modely</button>
+            <button class="visual-btn" data-visual="billboard" id="visual2dPause">2D billboardy</button>
+        </div>
+        <div class="ctrlmode-block">
+            <div class="selector-label" id="controlModePauseLabel">Ovládanie dotykom:</div>
+            <div class="diff-row">
+                <button class="ctrl-btn active" data-ctrl="swipe" id="ctrlSwipePause">👆 Swipe</button>
+                <button class="ctrl-btn" data-ctrl="dpad" id="ctrlDpadPause">🎮 D-Pad</button>
+            </div>
+            <div class="diff-row">
+                <button class="ctrl-btn joy-toggle" id="joyTogglePause">🕹 Joystick: Zap</button>
+            </div>
+        </div>
+        <button class="ghost" id="openControlsPause">⌨ Ovládanie</button>
+        <button class="ghost" id="menuBtn">Späť do Menu</button>
+    </div>
+</div>
+
+<!-- Predefinovateľné ovládanie -->
+<div id="controlsScreen" class="overlay hidden">
+    <div class="panel">
+        <h2 id="controlsTitle">⌨ Ovládanie</h2>
+        <div class="sub" id="controlsHint">Klikni na kláves a stlač nový. Esc zruší.</div>
+        <div id="controlsList"></div>
+        <button class="ghost" id="controlsResetBtn">↺ Predvolené</button><br>
+        <button class="big" id="controlsBackBtn">Späť</button>
+    </div>
+</div>
+
+<!-- Game Over -->
+<div id="gameOverScreen" class="overlay hidden">
+    <div class="panel">
+        <h2 id="gameOverTitle">💔 Prebudenie...</h2>
+        <div class="sub" id="gameOverScore">Skóre: 0</div>
+        <button class="big" id="retryBtn">Snívaš Znova</button>
+    </div>
+</div>
+
+<!-- Win -->
+<div id="winScreen" class="overlay hidden">
+    <div class="panel">
+        <h2 id="winTitle">🌟 Prebudenie! 🌟</h2>
+        <div class="sub" id="winText">Prešiel si všetkými ríšami</div>
+        <div class="sub" id="winScore">Skóre: 0</div>
+        <button class="big" id="playAgainBtn">Snívaj Odznova</button>
+    </div>
+</div>
+
+<div id="diag" class="" style="display:none">načítavam…</div>
+<div id="diagHint" style="display:none">` / F1 = dev panel</div>
+<div class="badge">Snový Svet 3D · build 17</div>
+
+<!-- Vendored Three.js (UMD, globálny THREE) + herné moduly v poradí; ?v= = cache-busting -->
+<script src="lib/three.min.js"></script>
+<script src="js/lang.js?v=17"></script>
+<script src="js/audio.js?v=17"></script>
+<script src="js/game.js?v=17"></script>
+</body>
+</html>

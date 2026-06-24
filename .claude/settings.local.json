@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head:*)",
+      "Bash(wc:*)",
+      "Bash(tail:*)",
+      "Bash(identify:*)",
+      "Bash(gradle wrapper:*)",
+      "Bash(chmod:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(java:*)",
+      "Bash(javac:*)",
+      "Bash(curl:*)",
+      "Bash(unzip:*)",
+      "Bash(/tmp/gradle-8.5/bin/gradle wrapper:*)",
+      "Bash(/tmp/gradle-8.12/bin/gradle wrapper:*)",
+      "Bash(brew install:*)",
+      "Bash(export JAVA_HOME=\"/home/linuxbrew/.linuxbrew/opt/openjdk@21\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")",
+      "Bash(./gradlew:*)",
+      "Bash(cd *)",
+      "Read(//home/mroz/Stiahnuté/**)",
+      "Bash(grep -nE \"^\\\\s*\\(function|const [A-Z]|let [A-Z]|//\\\\s*={3,}\\)\" snovy-svet-old.html)",
+      "Bash(ls -la /tmp/snovy-serve/)",
+      "Bash(pgrep -af \"lhr.life\\\\|snovy-tunnel\\\\|http.server\")"
+    ]
+  }
+}
