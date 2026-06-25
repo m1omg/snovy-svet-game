@@ -173,7 +173,9 @@
             <button class="diff-btn" data-diff="EASY" id="diffEasy">🟢 Ľahká</button>
             <button class="diff-btn active" data-diff="MEDIUM" id="diffMedium">🟡 Stredná</button>
             <button class="diff-btn" data-diff="HARD" id="diffHard">🔴 Ťažká</button>
+            <button class="diff-btn" data-diff="CUSTOM" id="diffCustom">⚙️ Vlastná</button>
         </div>
+        <button class="ghost" id="editCustomBtn" style="font-size:13px; padding:6px 14px; margin-top:2px">⚙️ Upraviť vlastnú obtiažnosť</button>
         <div class="diff-row">
             <button class="ctrl-btn mm-toggle" id="mobileModeMenu">📱 Mobilný režim: Vyp</button>
             <button class="ctrl-btn dev-toggle" id="devMenu">🛠 Dev mód: Vyp</button>
@@ -198,7 +200,7 @@
         <button class="ghost" id="openControlsMenu">⌨ Ovládanie</button>
         <button class="ghost" id="langBtn">🌐 English</button>
         <div class="credits" id="uiCredits">Ďakujem za obrázok hlavného hrdinu kamarátovi Nerovi 💙</div>
-        <div id="buildTag">build 19</div>
+        <div id="buildTag">build 20</div>
     </div>
 </div>
 
@@ -242,6 +244,16 @@
     </div>
 </div>
 
+<!-- Editor vlastnej obtiažnosti -->
+<div id="customDiffScreen" class="overlay hidden">
+    <div class="panel">
+        <h2 id="customDiffTitle">⚙️ Vlastná obtiažnosť</h2>
+        <div id="customDiffList"></div>
+        <button class="ghost" id="customDiffResetBtn">↺ Predvolené</button><br>
+        <button class="big" id="customDiffBackBtn">Späť</button>
+    </div>
+</div>
+
 <!-- Game Over -->
 <div id="gameOverScreen" class="overlay hidden">
     <div class="panel">
@@ -263,12 +275,12 @@
 
 <div id="diag" class="" style="display:none">načítavam…</div>
 <div id="diagHint" style="display:none">` / F1 = dev panel</div>
-<div class="badge">Snový Svet 3D · build 19</div>
+<div class="badge">Snový Svet 3D · build 20</div>
 
 <!-- Vendored Three.js (UMD, globálny THREE) + herné moduly v poradí; ?v= = cache-busting -->
 <script src="lib/three.min.js"></script>
-<script src="js/lang.js?v=19"></script>
-<script src="js/audio.js?v=19"></script>
-<script src="js/game.js?v=19"></script>
+<script src="js/lang.js?v=20"></script>
+<script src="js/audio.js?v=20"></script>
+<script src="js/game.js?v=20"></script>
 </body>
 </html>
