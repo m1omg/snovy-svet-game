@@ -69,6 +69,10 @@
     .ctrl-key:hover { background: rgba(90,50,150,0.8); }
     .ctrl-key.listening { background: linear-gradient(135deg, #7a40c0, #b060ff); border-color: transparent;
         box-shadow: 0 0 14px rgba(176,96,255,0.7); animation: ctrlPulse 0.9s ease-in-out infinite; }
+    .mouse-sens-row { align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;
+        margin: 4px 0 10px; font-size: 13px; color: rgba(240,232,255,0.9); }
+    .mouse-sens-row .ctrl-key { min-width: 38px; padding: 5px 9px; }
+    .mouse-sens-value { min-width: 50px; text-align: center; font: bold 14px monospace; color: #fff; }
     @keyframes ctrlPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
     /* ---------- Toast (napr. extra život) ---------- */
     #toast { position: fixed; top: 88px; left: 50%; transform: translateX(-50%);
@@ -183,6 +187,12 @@
         <div class="diff-row pc-only">
             <button class="ctrl-btn cap-toggle" id="captureMenu">🖱 Zachytiť myš: Vyp</button>
         </div>
+        <div class="pc-only mouse-sens-row">
+            <span id="mouseSensMenuLabel">Citlivosť myši</span>
+            <button class="ctrl-key mouse-sens-dec">−</button>
+            <span class="mouse-sens-value" id="mouseSensMenuValue">70%</span>
+            <button class="ctrl-key mouse-sens-inc">+</button>
+        </div>
         <div class="selector-label" id="visualLabel">Vizuál:</div>
         <div class="diff-row">
             <button class="visual-btn active" data-visual="model" id="visual3dMenu">3D modely</button>
@@ -203,7 +213,7 @@
         <button class="ghost" id="openControlsMenu">⌨ Ovládanie</button>
         <button class="ghost" id="langBtn">🌐 English</button>
         <div class="credits" id="uiCredits">Ďakujem za obrázok hlavného hrdinu kamarátovi Nerovi 💙</div>
-        <div id="buildTag">build 20</div>
+        <div id="buildTag">build 23</div>
     </div>
 </div>
 
@@ -218,6 +228,12 @@
         </div>
         <div class="diff-row pc-only">
             <button class="ctrl-btn cap-toggle" id="capturePause">🖱 Zachytiť myš: Vyp</button>
+        </div>
+        <div class="pc-only mouse-sens-row">
+            <span id="mouseSensPauseLabel">Citlivosť myši</span>
+            <button class="ctrl-key mouse-sens-dec">−</button>
+            <span class="mouse-sens-value" id="mouseSensPauseValue">70%</span>
+            <button class="ctrl-key mouse-sens-inc">+</button>
         </div>
         <div class="selector-label" id="pauseVisualLabel">Vizuál:</div>
         <div class="diff-row">
@@ -281,12 +297,12 @@
 
 <div id="diag" class="" style="display:none">načítavam…</div>
 <div id="diagHint" style="display:none">` / F1 = dev panel</div>
-<div class="badge">Snový Svet 3D · build 20</div>
+<div class="badge">Snový Svet 3D · build 23</div>
 
 <!-- Vendored Three.js (UMD, globálny THREE) + herné moduly v poradí; ?v= = cache-busting -->
 <script src="lib/three.min.js"></script>
-<script src="js/lang.js?v=22"></script>
-<script src="js/audio.js?v=22"></script>
-<script src="js/game.js?v=22"></script>
+<script src="js/lang.js?v=23"></script>
+<script src="js/audio.js?v=23"></script>
+<script src="js/game.js?v=23"></script>
 </body>
 </html>
