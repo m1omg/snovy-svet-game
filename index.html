@@ -2247,6 +2247,7 @@
     function generateLevel(levelNum) {
         const theme = getTheme(levelNum);
         worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD_WIDTH_MULTIPLIER + levelNum * 0.3) * 1.25;   // levely o 25 % dlhšie
+        const isBossLevel = (levelNum === 3 || levelNum === 7 || levelNum === 11);
         
         platforms = [];
         enemies = [];
@@ -2288,7 +2289,7 @@
         const topCeiling = 130;
         const midY = topCeiling + (groundY - topCeiling) * 0.5;
 
-        while (currentX < worldWidth - 400) { // Zastavím skôr kvôli portálu
+        while (currentX < worldWidth - (isBossLevel ? 780 : 400)) { // pred bossom nechaj voľný priestor na arénu
             // Rozhodnutie: ísť hore, dole, alebo rovne – pravdepodobnosti podľa polohy,
             // aby sa cesta vracala k stredu a rozprestrela po celej výške.
             const direction = Math.random();
@@ -2670,16 +2671,16 @@
         DreamMusic.tempo = 55 + (levelNum % 4) * 8;
 
         // Boss fight na leveloch 4, 8, 12 (levelNum je 0-indexovaný, takže 3, 7, 11)
-        if (levelNum === 3 || levelNum === 7 || levelNum === 11) {
-            // Bossová aréna: zopár plošín okolo bossa (úskoky + útok zhora), nie plná aréna
-            const ax = worldWidth - 520;
+        if (isBossLevel) {
+            // Bossová aréna: súvislá podlaha + symetrické rímsy (nízke + vyššie) na úskoky a útok zhora
+            const Bx = worldWidth - 350;            // pozícia bossa
             for (const ap of [
-                [ax,        groundY - 150, 120],
-                [ax + 180,  groundY - 240, 100],
-                [ax + 70,   groundY - 330, 95],
-                [ax - 30,   groundY - 95,  90],
-                [ax + 220,  groundY - 170, 100]
-            ]) platforms.push({ x: ap[0], y: ap[1], width: ap[2], height: 26, type: 'solid', theme });
+                [worldWidth - 820, groundY,       700, 40],   // arénová podlaha (súvislá – je na čom bojovať)
+                [Bx - 360, groundY - 130, 190, 26],           // nízka ľavá rímsa
+                [Bx - 130, groundY - 130, 190, 26],           // nízka pravá rímsa
+                [Bx - 260, groundY - 265, 170, 26],           // vyššia stredná (skok na bossa)
+                [Bx - 30,  groundY - 235, 150, 26]            // vyššia pravá
+            ]) platforms.push({ x: ap[0], y: ap[1], width: ap[2], height: ap[3], type: 'solid', theme });
             boss = createBoss(levelNum);
         }
 
