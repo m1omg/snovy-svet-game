@@ -479,12 +479,7 @@
             <div id="actionButtons">
                 <div class="action-btn" id="btn-jump">SKOK</div>
                 <div class="action-btn" id="btn-shoot">LÚČA</div>
-                <div class="action-btn" id="btn-dash">DASH</div>
             </div>
-        </div>
-        <div id="dashHint" class="dash-hint hidden">
-            <div class="dash-arrow left">⟵</div>
-            <div class="dash-arrow right">⟶</div>
         </div>
         <div id="menuScreen" class="screen">
             <h2>🌙 Snový Svet 🌙</h2>
@@ -509,8 +504,8 @@
                 </div>
                 <button class="lang-btn" id="menuFpsBtn">📊 FPS: Vyp</button>
                 <p class="controls-info">
-                    🎮 Šípky/WASD = pohyb | Space/Ctrl = lúč | Shift/E = dash<br>
-                    📱 Swipe = pohyb | ↑skok | ↓pound | ✌️tap = dash<br>
+                    🎮 Šípky/WASD = pohyb | Space/Ctrl = lúč<br>
+                    📱 Swipe = pohyb | ↑skok | ↓pound<br>
                     💫 Trojitý skok k dispozícii! | ⏸ Pause = pauza
                 </p>
             </div>
@@ -662,7 +657,7 @@
             easy: '🟢 Ľahká',
             medium: '🟡 Stredná',
             hard: '🔴 Ťažká',
-            controls: '🎮 Šípky/WASD = pohyb | Space/Ctrl = lúč | Shift/E = dash<br>📱 Swipe = pohyb | ↑skok | ↓pound | ✌️tap = dash<br>💫 Trojitý skok k dispozícii! | ⏸ Pause = pauza',
+            controls: '🎮 Šípky/WASD = pohyb | Space/Ctrl = lúč<br>📱 Swipe = pohyb | ↑skok | ↓pound<br>💫 Trojitý skok k dispozícii! | ⏸ Pause = pauza',
             startBtn: 'Vstúp do Sna',
             langBtn: '🌐 English',
             touchControlsLabel: '📱 Dotykové ovládanie:',
@@ -709,7 +704,7 @@
             easy: '🟢 Easy',
             medium: '🟡 Medium',
             hard: '🔴 Hard',
-            controls: '🎮 Arrows/WASD = move | Space/Ctrl = beam | Shift/E = dash<br>📱 Swipe = move | ↑jump | ↓pound | ✌️tap = dash<br>💫 Triple jump available! | ⏸ Pause = pause',
+            controls: '🎮 Arrows/WASD = move | Space/Ctrl = beam<br>📱 Swipe = move | ↑jump | ↓pound<br>💫 Triple jump available! | ⏸ Pause = pause',
             startBtn: 'Enter the Dream',
             langBtn: '🌐 Slovensky',
             touchControlsLabel: '📱 Touch controls:',
@@ -2251,7 +2246,7 @@
     // Generate level - logická štruktúra platforiem
     function generateLevel(levelNum) {
         const theme = getTheme(levelNum);
-        worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD_WIDTH_MULTIPLIER + levelNum * 0.3);
+        worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD_WIDTH_MULTIPLIER + levelNum * 0.3) * 1.25;   // levely o 25 % dlhšie
         
         platforms = [];
         enemies = [];
@@ -2676,6 +2671,15 @@
 
         // Boss fight na leveloch 4, 8, 12 (levelNum je 0-indexovaný, takže 3, 7, 11)
         if (levelNum === 3 || levelNum === 7 || levelNum === 11) {
+            // Bossová aréna: zopár plošín okolo bossa (úskoky + útok zhora), nie plná aréna
+            const ax = worldWidth - 520;
+            for (const ap of [
+                [ax,        groundY - 150, 120],
+                [ax + 180,  groundY - 240, 100],
+                [ax + 70,   groundY - 330, 95],
+                [ax - 30,   groundY - 95,  90],
+                [ax + 220,  groundY - 170, 100]
+            ]) platforms.push({ x: ap[0], y: ap[1], width: ap[2], height: 26, type: 'solid', theme });
             boss = createBoss(levelNum);
         }
 
@@ -2770,20 +2774,7 @@
             if (!e.touches || e.touches.length === 0) return;
             AudioMaster.init();
 
-            // Two-finger tap = DASH
-            if (e.touches.length === 2 && player && player.dashCooldown <= 0) {
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                const centerX = (touch1.clientX + touch2.clientX) / 2;
-                const centerY = (touch1.clientY + touch2.clientY) / 2;
-                const canvasRect = canvas.getBoundingClientRect();
-                const direction = centerX > canvasRect.left + canvasRect.width / 2 ? 1 : -1;
-
-                dash(direction);
-                showDashHint(direction);
-                addTapRipple(centerX - canvasRect.left, centerY - canvasRect.top);
-                return;
-            }
+            // (two-finger tap dash odstránený)
 
             const touch = e.touches[0];
             touchStartX = touch.clientX;
@@ -3089,6 +3080,7 @@
 
     // Dash - aktivovaný dotykom alebo klávesou
     function dash(direction) {
+        return;   // DASH mechanika zrušená – nikdy sa neaktivuje (posielalo to hráča do priepasti)
         if (!player || player.dashCooldown > 0 || player.isDashing) return;
         // Ak nie je zadaný smer, použijeme aktuálny facing
         const dir = direction || player.facing;
@@ -3168,31 +3160,7 @@
         // Dash cooldown
         if (player.dashCooldown > 0) player.dashCooldown -= dt / 1000;
 
-        // Dash aktivácia (Shift alebo E)
-        if ((keys['ShiftLeft'] || keys['ShiftRight'] || keys['KeyE']) &&
-            player.dashCooldown <= 0 && !player.isDashing && moveX !== 0) {
-            player.isDashing = true;
-            player.dashTimer = DASH_DURATION;
-            player.dashCooldown = DASH_COOLDOWN;
-            Sfx.play('dash');
-            triggerShake(4, 0.1);
-
-            // Dash particles - iskry a pruhy
-            for (let i = 0; i < 12; i++) {
-                particles.push({
-                    x: player.x + player.width / 2 + (Math.random() - 0.5) * player.width,
-                    y: player.y + player.height / 2 + (Math.random() - 0.5) * player.height,
-                    vx: -player.facing * (4 + Math.random() * 6),
-                    vy: (Math.random() - 0.5) * 2,
-                    life: 0.4 + Math.random() * 0.3,
-                    color: i % 3 === 0 ? '#ffffff' : (i % 2 === 0 ? '#d0a0ff' : '#8060ff'),
-                    size: 5 + Math.random() * 4,
-                    type: i % 4 === 0 ? 'spark' : 'circle',
-                    rotation: player.facing > 0 ? 0 : Math.PI,
-                    glow: 15
-                });
-            }
-        }
+        // (DASH mechanika odstránená – Shift/E už nič nerobí)
 
         // Dash update
         if (player.isDashing) {
@@ -3510,7 +3478,9 @@
                 const hitX = (player.facing > 0) ?
                     (e.x < beamEndX && e.x + e.width > beamStartX) :
                     (e.x + e.width > beamEndX && e.x < beamStartX);
-                const hitY = beamY > e.y && beamY < e.y + e.height;
+                // Lúč má hrúbku (predtým to bola len čiara cez stred hráča → zásahy občas nevyšli)
+                const beamHalfH = 22;
+                const hitY = (beamY + beamHalfH) > e.y && (beamY - beamHalfH) < (e.y + e.height);
 
                 if (hitX && hitY) {
                     e.health -= 40 * df;
