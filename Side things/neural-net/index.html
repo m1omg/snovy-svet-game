@@ -79,7 +79,7 @@
             <div class="row"><input type="range" id="noise" min="0" max="0.35" step="0.01" value="0.08"><span class="val" id="noiseVal">0.08</span></div>
 
             <div class="row" style="margin-top:16px">
-                <button class="go active" id="play">▶ Trénuj</button>
+                <button class="go active" id="play">⏸ Pauza</button>
                 <button class="go" id="reset">⟲ Reset</button>
             </div>
 
@@ -334,14 +334,18 @@ slider('lr', 'lrVal', v => v.toFixed(2), v => (lr = Math.pow(10, v), lr));
 slider('speed', 'speedVal', v => '' + v, v => (speed = v, v));
 slider('noise', 'noiseVal', v => v.toFixed(2), v => { noise = v; return v; });
 
-document.getElementById('play').addEventListener('click', e => {
-    running = !running; e.target.textContent = running ? '▶ Trénuj' : '⏸ Pauza';
-    e.target.classList.toggle('active', running);
-});
+const playBtn = document.getElementById('play');
+function syncPlay() {   // tlačidlo ukazuje AKTUÁLNY stav: beží → Pauza, zastavené → Trénuj
+    playBtn.textContent = running ? '⏸ Pauza' : '▶ Trénuj';
+    playBtn.classList.toggle('active', running);
+}
+playBtn.addEventListener('click', () => { running = !running; syncPlay(); });
+syncPlay();
 document.getElementById('reset').addEventListener('click', () => rebuild(false));
 
-// klik = pridaj bod (Shift = druhá trieda)
-board.addEventListener('mousedown', e => {
+// klik / dotyk = pridaj bod (Shift = druhá trieda)
+board.addEventListener('pointerdown', e => {
+    e.preventDefault();
     const r = board.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * 2 - 1;
     const y = (1 - (e.clientY - r.top) / r.height) * 2 - 1;
