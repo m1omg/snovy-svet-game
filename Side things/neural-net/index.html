@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 Malá nervová sieť</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; background: #0a0618;
+        color: #efe7ff; min-height: 100vh; padding: 18px; }
+    h1 { font-size: clamp(20px, 4vw, 30px); text-shadow: 0 0 16px rgba(150,90,255,0.7); margin-bottom: 4px; }
+    .sub { opacity: 0.65; font-size: 13px; margin-bottom: 16px; }
+    .wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+    .card { background: rgba(28,14,52,0.7); border: 1px solid rgba(150,90,255,0.28);
+        border-radius: 16px; padding: 16px; box-shadow: 0 0 30px rgba(110,60,200,0.25); }
+    canvas { display: block; border-radius: 10px; background: #07040f; }
+    #board { width: 460px; height: 460px; max-width: 86vw; }
+    #netcv { width: 300px; height: 180px; margin-top: 10px; }
+    .panel { width: 320px; max-width: 86vw; }
+    .row { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .label { font-size: 12px; opacity: 0.7; width: 100%; margin-bottom: 2px; letter-spacing: 0.4px; text-transform: uppercase; }
+    button { cursor: pointer; border: 1px solid rgba(150,90,255,0.4); background: rgba(50,26,90,0.6);
+        color: #efe7ff; border-radius: 9px; padding: 7px 13px; font-size: 13px; transition: 0.12s; }
+    button:hover { background: rgba(90,50,150,0.8); }
+    button.active { background: linear-gradient(135deg, #7a40c0, #b060ff); border-color: transparent;
+        box-shadow: 0 0 12px rgba(176,96,255,0.6); }
+    button.go { font-weight: bold; padding: 9px 18px; font-size: 14px; }
+    input[type=range] { flex: 1; accent-color: #b060ff; min-width: 120px; }
+    .val { font: bold 13px monospace; color: #d9c4ff; min-width: 56px; text-align: right; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-top: 6px; }
+    .stat { background: rgba(12,6,26,0.6); border: 1px solid rgba(150,90,255,0.2); border-radius: 9px; padding: 8px 10px; }
+    .stat .k { font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .v { font: bold 19px monospace; color: #7effc0; }
+    .hint { font-size: 12px; opacity: 0.6; margin-top: 12px; line-height: 1.5; }
+    a { color: #b98bff; }
+</style>
+</head>
+<body>
+    <h1>🧠 Malá nervová sieť</h1>
+    <div class="sub">Neurónka trénovaná od nuly vo vanilla JS — učí sa rozdeliť body na dve triedy. Sleduj, ako sa hranica „rozhoduje".</div>
+
+    <div class="wrap">
+        <div class="card">
+            <canvas id="board" width="460" height="460"></canvas>
+            <div class="label" style="margin-top:10px">Sieť (hrúbka = váha · červená + / modrá −)</div>
+            <canvas id="netcv" width="300" height="180"></canvas>
+        </div>
+
+        <div class="card panel">
+            <div class="label">Dáta</div>
+            <div class="row" id="dataBtns">
+                <button data-set="xor" class="active">XOR</button>
+                <button data-set="circle">Kruh</button>
+                <button data-set="spiral">Špirála</button>
+                <button data-set="moons">Mesiačiky</button>
+            </div>
+
+            <div class="label">Skryté vrstvy</div>
+            <div class="row" id="archBtns">
+                <button data-arch="6" class="active">6</button>
+                <button data-arch="8,8">8·8</button>
+                <button data-arch="12,12">12·12</button>
+                <button data-arch="16,16,16">16·16·16</button>
+            </div>
+
+            <div class="label">Aktivácia</div>
+            <div class="row" id="actBtns">
+                <button data-act="tanh" class="active">tanh</button>
+                <button data-act="relu">ReLU</button>
+            </div>
+
+            <div class="label">Rýchlosť učenia (learning rate)</div>
+            <div class="row"><input type="range" id="lr" min="-3" max="0.5" step="0.05" value="-0.4"><span class="val" id="lrVal">0.40</span></div>
+
+            <div class="label">Krokov za snímok (rýchlosť)</div>
+            <div class="row"><input type="range" id="speed" min="1" max="30" step="1" value="6"><span class="val" id="speedVal">6</span></div>
+
+            <div class="label">Šum dát</div>
+            <div class="row"><input type="range" id="noise" min="0" max="0.35" step="0.01" value="0.08"><span class="val" id="noiseVal">0.08</span></div>
+
+            <div class="row" style="margin-top:16px">
+                <button class="go active" id="play">▶ Trénuj</button>
+                <button class="go" id="reset">⟲ Reset</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat"><div class="k">Epocha</div><div class="v" id="epoch">0</div></div>
+                <div class="stat"><div class="k">Strata (loss)</div><div class="v" id="loss">—</div></div>
+                <div class="stat"><div class="k">Presnosť</div><div class="v" id="acc">—</div></div>
+                <div class="stat"><div class="k">Parametre</div><div class="v" id="params">—</div></div>
+            </div>
+
+            <div class="hint">Vstup sú 2 čísla (x, y), výstup je pravdepodobnosť triedy (sigmoid). Učí sa cez <b>backpropagation</b> a gradientný zostup. Klikni do plátna a pridáš bod aktuálnej triedy (Shift = druhá trieda).</div>
+        </div>
+    </div>
+
+<script>
+// ==================== NEURÓNOVÁ SIEŤ (od nuly) ====================
+const sigmoid = v => 1 / (1 + Math.exp(-v));
+const ACT = {
+    tanh:  { f: Math.tanh, d: y => 1 - y * y, byZ: false },                 // derivácia z výstupu (1 - tanh^2)
+    relu:  { f: z => z > 0 ? z : 0, d: z => z > 0 ? 1 : 0, byZ: true }      // derivácia zo z
+};
+
+function makeNet(sizes) {
+    const W = [], B = [], A = [];   // A = posledné aktivácie (na vizualizáciu)
+    for (let l = 1; l < sizes.length; l++) {
+        const rows = sizes[l], cols = sizes[l - 1];
+        const scale = Math.sqrt(2 / (cols + rows));   // Xavier/He-ish inicializácia
+        const w = [];
+        for (let i = 0; i < rows; i++) {
+            const r = [];
+            for (let j = 0; j < cols; j++) r.push((Math.random() * 2 - 1) * scale);
+            w.push(r);
+        }
+        W.push(w); B.push(new Array(rows).fill(0));
+    }
+    return { sizes, W, B, A };
+}
+
+// dopredný prechod; vráti aktivácie (a) a predaktivácie (zs) všetkých vrstiev
+function forward(net, x, act) {
+    const a = [x], zs = [];
+    for (let l = 0; l < net.W.length; l++) {
+        const w = net.W[l], b = net.B[l], prev = a[l], z = new Array(w.length), out = new Array(w.length);
+        for (let i = 0; i < w.length; i++) {
+            let s = b[i]; const wi = w[i];
+            for (let j = 0; j < wi.length; j++) s += wi[j] * prev[j];
+            z[i] = s;
+        }
+        const isOut = l === net.W.length - 1;
+        for (let i = 0; i < z.length; i++) out[i] = isOut ? sigmoid(z[i]) : act.f(z[i]);
+        zs.push(z); a.push(out);
+    }
+    return { a, zs };
+}
+
+function predict(net, x, act) { return forward(net, x, act).a[net.W.length][0]; }
+
+// jeden krok plnodávkového (batch) gradientného zostupu + binárna krížová entropia
+function trainStep(net, data, lr, act) {
+    const gW = net.W.map(w => w.map(r => r.map(() => 0)));
+    const gB = net.B.map(b => b.map(() => 0));
+    let loss = 0, correct = 0;
+    const L = net.W.length;
+    const sumA = net.sizes.map(n => new Array(n).fill(0));   // priemerné aktivácie na diagram
+
+    for (const s of data) {
+        const { a, zs } = forward(net, s.x, act);
+        const out = a[L][0];
+        loss += -(s.y * Math.log(out + 1e-7) + (1 - s.y) * Math.log(1 - out + 1e-7));
+        if ((out > 0.5 ? 1 : 0) === s.y) correct++;
+        for (let l = 0; l < a.length; l++) for (let i = 0; i < a[l].length; i++) sumA[l][i] += a[l][i];
+
+        let delta = [out - s.y];   // sigmoid + BCE → delta výstupu = a - y
+        for (let l = L - 1; l >= 0; l--) {
+            const prev = a[l];
+            for (let i = 0; i < net.W[l].length; i++) {
+                gB[l][i] += delta[i];
+                const gw = gW[l][i], di = delta[i];
+                for (let j = 0; j < prev.length; j++) gw[j] += di * prev[j];
+            }
+            if (l > 0) {
+                const nd = new Array(net.W[l][0].length).fill(0);
+                for (let i = 0; i < net.W[l].length; i++) {
+                    const wi = net.W[l][i], di = delta[i];
+                    for (let k = 0; k < nd.length; k++) nd[k] += wi[k] * di;
+                }
+                const z = zs[l - 1], aPrev = a[l];
+                for (let k = 0; k < nd.length; k++) nd[k] *= act.byZ ? act.d(z[k]) : act.d(aPrev[k]);
+                delta = nd;
+            }
+        }
+    }
+    const n = data.length;
+    for (let l = 0; l < net.W.length; l++)
+        for (let i = 0; i < net.W[l].length; i++) {
+            net.B[l][i] -= lr * gB[l][i] / n;
+            const wl = net.W[l][i], gl = gW[l][i];
+            for (let j = 0; j < wl.length; j++) wl[j] -= lr * gl[j] / n;
+        }
+    net.A = sumA.map(row => row.map(v => v / n));
+    return { loss: loss / n, acc: correct / n };
+}
+
+// ==================== DÁTA ====================
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function makeData(kind, noise, n = 240) {
+    const d = [];
+    const jit = () => (Math.random() * 2 - 1) * noise;
+    if (kind === 'xor') {
+        for (let i = 0; i < n; i++) {
+            const x = rnd(-1, 1), y = rnd(-1, 1);
+            d.push({ x: [x + jit(), y + jit()], y: (x * y > 0) ? 1 : 0 });
+        }
+    } else if (kind === 'circle') {
+        for (let i = 0; i < n; i++) {
+            const r = Math.sqrt(Math.random()), th = rnd(0, Math.PI * 2);
+            const x = r * Math.cos(th), y = r * Math.sin(th);
+            d.push({ x: [x + jit(), y + jit()], y: (x * x + y * y < 0.36) ? 1 : 0 });
+        }
+    } else if (kind === 'spiral') {
+        for (let c = 0; c < 2; c++) for (let i = 0; i < n / 2; i++) {
+            const t = i / (n / 2) * 3.3, rad = t * 0.28;
+            const ang = t * 2.6 + c * Math.PI + jit() * 2;
+            d.push({ x: [rad * Math.cos(ang) + jit() * 0.5, rad * Math.sin(ang) + jit() * 0.5], y: c });
+        }
+    } else { // moons
+        for (let c = 0; c < 2; c++) for (let i = 0; i < n / 2; i++) {
+            const t = Math.PI * (i / (n / 2));
+            let x = Math.cos(t) * 0.7, y = Math.sin(t) * 0.7;
+            if (c === 1) { x = 0.7 - Math.cos(t) * 0.7; y = -Math.sin(t) * 0.7 + 0.25; }
+            d.push({ x: [x + jit() + (c ? 0.0 : -0.1), y + jit()], y: c });
+        }
+    }
+    return d;
+}
+
+// ==================== VIZUALIZÁCIA ====================
+const board = document.getElementById('board'), bx = board.getContext('2d');
+const netcv = document.getElementById('netcv'), nx = netcv.getContext('2d');
+const GRID = 64;
+let gridImg = bx.createImageData(GRID, GRID);
+
+function toPx(v) { return (v + 1) / 2 * board.width; }   // doména [-1,1] → pixely
+
+function drawBoard() {
+    // rozhodovacia hranica: vyhodnoť sieť na mriežke
+    const data = gridImg.data;
+    for (let gy = 0; gy < GRID; gy++) for (let gx = 0; gx < GRID; gx++) {
+        const x = gx / (GRID - 1) * 2 - 1, y = (1 - gy / (GRID - 1)) * 2 - 1;
+        const p = predict(net, [x, y], act);
+        const i = (gy * GRID + gx) * 4;
+        // trieda 0 = modrá, trieda 1 = oranžová, prechod cez fialovú
+        data[i]     = 60 + p * 195;
+        data[i + 1] = 40 + p * 90;
+        data[i + 2] = 180 - p * 110;
+        data[i + 3] = 235;
+    }
+    // priblíž mriežku na celé plátno (vyhladene)
+    const tmp = document.createElement('canvas'); tmp.width = GRID; tmp.height = GRID;
+    tmp.getContext('2d').putImageData(gridImg, 0, 0);
+    bx.imageSmoothingEnabled = true;
+    bx.drawImage(tmp, 0, 0, board.width, board.height);
+    // dátové body
+    for (const s of dataset) {
+        bx.beginPath();
+        bx.arc(toPx(s.x[0]), board.height - toPx(s.x[1]), 4, 0, Math.PI * 2);
+        bx.fillStyle = s.y ? '#ffce4d' : '#4db5ff';
+        bx.fill();
+        bx.lineWidth = 1.2; bx.strokeStyle = 'rgba(0,0,0,0.55)'; bx.stroke();
+    }
+}
+
+function drawNet() {
+    nx.clearRect(0, 0, netcv.width, netcv.height);
+    const sizes = net.sizes, padX = 26, padY = 16;
+    const colW = (netcv.width - padX * 2) / (sizes.length - 1);
+    const pos = sizes.map((cnt, l) => {
+        const gap = (netcv.height - padY * 2) / Math.max(1, cnt - (cnt > 1 ? 1 : 0));
+        const arr = [];
+        for (let i = 0; i < cnt; i++) arr.push({ x: padX + l * colW, y: cnt === 1 ? netcv.height / 2 : padY + i * gap });
+        return arr;
+    });
+    // hrany podľa váh
+    for (let l = 0; l < net.W.length; l++) {
+        const w = net.W[l];
+        for (let i = 0; i < w.length; i++) for (let j = 0; j < w[i].length; j++) {
+            const a = pos[l][j], b = pos[l + 1][i], wv = w[i][j];
+            nx.beginPath(); nx.moveTo(a.x, a.y); nx.lineTo(b.x, b.y);
+            nx.lineWidth = Math.min(3, Math.abs(wv) * 1.3);
+            nx.strokeStyle = wv >= 0 ? 'rgba(255,120,90,' + Math.min(0.9, Math.abs(wv) * 0.5) + ')'
+                                     : 'rgba(90,160,255,' + Math.min(0.9, Math.abs(wv) * 0.5) + ')';
+            nx.stroke();
+        }
+    }
+    // uzly (jas podľa aktivácie)
+    for (let l = 0; l < pos.length; l++) for (let i = 0; i < pos[l].length; i++) {
+        const a = (net.A[l] && net.A[l][i] != null) ? net.A[l][i] : 0.5;
+        nx.beginPath(); nx.arc(pos[l][i].x, pos[l][i].y, 6, 0, Math.PI * 2);
+        const g = Math.max(0, Math.min(1, a));
+        nx.fillStyle = 'rgb(' + (60 + g * 180) + ',' + (40 + g * 150) + ',' + (120 + g * 80) + ')';
+        nx.fill(); nx.lineWidth = 1.5; nx.strokeStyle = 'rgba(200,170,255,0.7)'; nx.stroke();
+    }
+}
+
+// ==================== STAV + SLUČKA ====================
+let net, dataset, act = ACT.tanh, kind = 'xor', archStr = '6', lr = 0.4, speed = 6, noise = 0.08;
+let epoch = 0, running = true, lastLoss = '—';
+
+function arch() { return [2, ...archStr.split(',').map(Number), 1]; }
+function countParams(n) { let p = 0; for (let l = 0; l < n.W.length; l++) p += n.W[l].length * (n.W[l][0].length + 1); return p; }
+
+function rebuild(newData = true) {
+    net = makeNet(arch());
+    if (newData) dataset = makeData(kind, noise);
+    epoch = 0; lastLoss = '—';
+    document.getElementById('params').textContent = countParams(net);
+    drawBoard(); drawNet(); updateStats(0, 0);
+}
+
+function updateStats(loss, acc) {
+    document.getElementById('epoch').textContent = epoch;
+    document.getElementById('loss').textContent = epoch ? loss.toFixed(4) : '—';
+    document.getElementById('acc').textContent = epoch ? (acc * 100).toFixed(1) + '%' : '—';
+}
+
+function loop() {
+    if (running) {
+        let r;
+        for (let s = 0; s < speed; s++) { r = trainStep(net, dataset, lr, act); epoch++; }
+        drawBoard(); drawNet(); updateStats(r.loss, r.acc);
+    }
+    requestAnimationFrame(loop);
+}
+
+// ==================== OVLÁDANIE ====================
+function bindGroup(id, attr, cb) {
+    document.querySelectorAll('#' + id + ' button').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('#' + id + ' button').forEach(o => o.classList.remove('active'));
+        b.classList.add('active'); cb(b.dataset[attr]);
+    }));
+}
+bindGroup('dataBtns', 'set', v => { kind = v; rebuild(true); });
+bindGroup('archBtns', 'arch', v => { archStr = v; rebuild(false); });
+bindGroup('actBtns', 'act', v => { act = ACT[v]; rebuild(false); });
+
+function slider(id, valId, fmt, cb) {
+    const el = document.getElementById(id), out = document.getElementById(valId);
+    const upd = () => { const v = cb(parseFloat(el.value)); out.textContent = fmt(v); };
+    el.addEventListener('input', upd); upd();
+}
+slider('lr', 'lrVal', v => v.toFixed(2), v => (lr = Math.pow(10, v), lr));
+slider('speed', 'speedVal', v => '' + v, v => (speed = v, v));
+slider('noise', 'noiseVal', v => v.toFixed(2), v => { noise = v; return v; });
+
+document.getElementById('play').addEventListener('click', e => {
+    running = !running; e.target.textContent = running ? '▶ Trénuj' : '⏸ Pauza';
+    e.target.classList.toggle('active', running);
+});
+document.getElementById('reset').addEventListener('click', () => rebuild(false));
+
+// klik = pridaj bod (Shift = druhá trieda)
+board.addEventListener('mousedown', e => {
+    const r = board.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * 2 - 1;
+    const y = (1 - (e.clientY - r.top) / r.height) * 2 - 1;
+    dataset.push({ x: [x, y], y: e.shiftKey ? 1 : 0 });
+});
+
+rebuild(true);
+loop();
+</script>
+</body>
+</html>
