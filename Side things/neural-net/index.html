@@ -42,7 +42,8 @@
     <div class="wrap">
         <div class="card">
             <canvas id="board" width="460" height="460"></canvas>
-            <div class="label" style="margin-top:10px">Sieť (hrúbka = váha · červená + / modrá −)</div>
+            <div class="sub" id="shapeInfo" style="min-height:16px; margin-top:6px; color:#d9c4ff"></div>
+            <div class="label" style="margin-top:6px">Sieť (hrúbka = váha · červená + / modrá −)</div>
             <canvas id="netcv" width="300" height="180"></canvas>
         </div>
 
@@ -53,14 +54,21 @@
                 <button data-set="circle">Kruh</button>
                 <button data-set="spiral">Špirála</button>
                 <button data-set="moons">Mesiačiky</button>
+                <button data-set="star">⭐ Hviezda</button>
+                <button data-set="letter">🔤 Písmeno</button>
+                <button data-set="cat">🐱 Mačka</button>
+                <button data-set="fish">🐟 Ryba</button>
+                <button data-set="butterfly">🦋 Motýľ</button>
             </div>
 
-            <div class="label">Skryté vrstvy</div>
+            <div class="label">Skryté vrstvy (väčšie = zložitejšie tvary)</div>
             <div class="row" id="archBtns">
                 <button data-arch="6" class="active">6</button>
-                <button data-arch="8,8">8·8</button>
                 <button data-arch="12,12">12·12</button>
-                <button data-arch="16,16,16">16·16·16</button>
+                <button data-arch="20,20">20·20</button>
+                <button data-arch="30,30">30·30</button>
+                <button data-arch="24,24,24">24·24·24</button>
+                <button data-arch="40,40,40">40·40·40</button>
             </div>
 
             <div class="label">Aktivácia</div>
@@ -186,6 +194,8 @@ function trainStep(net, data, lr, act) {
 // ==================== DÁTA ====================
 function rnd(a, b) { return a + Math.random() * (b - a); }
 function makeData(kind, noise, n = 240) {
+    if (SHAPES[kind]) return makeShapeData(kind, noise);   // zložité tvary (hviezda, písmeno, zvieratá)
+    currentShape = ''; updateShapeInfo();
     const d = [];
     const jit = () => (Math.random() * 2 - 1) * noise;
     if (kind === 'xor') {
@@ -216,11 +226,95 @@ function makeData(kind, noise, n = 240) {
     return d;
 }
 
+// ---- Zložité tvary cez rasterizáciu: tvar nakreslíme na offscreen plátno; bod „je vnútri" = nepriehľadný pixel ----
+let currentShape = '';
+function rasterInside(drawFn, res) {
+    res = res || 220;
+    const c = document.createElement('canvas'); c.width = c.height = res;
+    const g = c.getContext('2d');
+    drawFn(g, res);
+    const data = g.getImageData(0, 0, res, res).data;
+    return (x, y) => {
+        const px = Math.round((x + 1) / 2 * (res - 1));
+        const py = Math.round((1 - (y + 1) / 2) * (res - 1));   // y nahor
+        if (px < 0 || px >= res || py < 0 || py >= res) return 0;
+        return data[(py * res + px) * 4 + 3] > 60 ? 1 : 0;      // alfa nad prah = vnútri tvaru
+    };
+}
+function starDraw(g, res) {                                     // 5-cípa hviezda
+    const cx = res / 2, cy = res / 2, R = res * 0.45, r = R * 0.42;
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+        const ang = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r : R;
+        const x = cx + Math.cos(ang) * rad, y = cy + Math.sin(ang) * rad;
+        i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath(); g.fillStyle = '#fff'; g.fill();
+}
+function glyphDraw(ch, bold) {                                  // písmeno (systémový font – vždy dostupné)
+    return (g, res) => {
+        g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.font = (bold ? 'bold ' : '') + Math.floor(res * 0.82) + 'px Arial, sans-serif';
+        g.fillText(ch, res / 2, res / 2 + res * 0.03);
+    };
+}
+// vektorové siluety zvierat (nezávislé od emoji fontu → fungujú všade)
+function catDraw(g, res) {
+    const cx = res / 2, cy = res * 0.58, R = res * 0.25; g.fillStyle = '#fff';
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();                          // hlava
+    for (const s of [-1, 1]) { g.beginPath();                                           // uši
+        g.moveTo(cx + s * R * 0.55, cy - R * 0.72); g.lineTo(cx + s * R * 1.05, cy - R * 1.6);
+        g.lineTo(cx + s * R * 0.02, cy - R * 0.98); g.closePath(); g.fill(); }
+    g.beginPath(); g.ellipse(cx, cy + R * 1.25, R * 0.95, R * 0.7, 0, 0, Math.PI * 2); g.fill(); // telo
+}
+function fishDraw(g, res) {
+    const cx = res * 0.45, cy = res / 2; g.fillStyle = '#fff';
+    g.beginPath(); g.ellipse(cx, cy, res * 0.30, res * 0.17, 0, 0, Math.PI * 2); g.fill();   // telo
+    g.beginPath(); g.moveTo(cx + res * 0.24, cy); g.lineTo(cx + res * 0.44, cy - res * 0.16);
+    g.lineTo(cx + res * 0.44, cy + res * 0.16); g.closePath(); g.fill();                       // chvost
+}
+function flyDraw(g, res) {                                                                     // motýľ
+    const cx = res / 2, cy = res / 2; g.fillStyle = '#fff';
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        g.beginPath(); g.ellipse(cx + sx * res * 0.16, cy + sy * res * 0.13, res * 0.15, res * 0.12, 0, 0, Math.PI * 2); g.fill();
+    }
+    g.beginPath(); g.ellipse(cx, cy, res * 0.035, res * 0.21, 0, 0, Math.PI * 2); g.fill();    // telo
+}
+const LETTERS = 'ABDEGHKMNPRSU';
+const SHAPE_LABEL = { star: 'Hviezda ⭐', letter: '', cat: 'Mačka 🐱', fish: 'Ryba 🐟', butterfly: 'Motýľ 🦋' };
+const SHAPES = {
+    star:      () => rasterInside(starDraw),
+    letter:    () => { const L = LETTERS[Math.floor(Math.random() * LETTERS.length)]; currentShape = L; return rasterInside(glyphDraw(L, true)); },
+    cat:       () => rasterInside(catDraw),
+    fish:      () => rasterInside(fishDraw),
+    butterfly: () => rasterInside(flyDraw)
+};
+function makeShapeData(kind, noise, n = 420) {
+    currentShape = SHAPE_LABEL[kind] || '';
+    const inside = SHAPES[kind]();                              // pre 'letter' nastaví currentShape na konkrétne písmeno
+    const d = [], half = Math.floor(n / 2); let inN = 0, outN = 0, tries = 0;
+    const jit = () => (Math.random() * 2 - 1) * noise;
+    while (d.length < n && tries < n * 60) {                    // vyvážene ~50/50 vnútri/vonku (rejection sampling)
+        tries++;
+        const x = rnd(-1, 1), y = rnd(-1, 1), lab = inside(x, y);
+        if (lab) { if (inN >= half) continue; inN++; } else { if (outN >= half) continue; outN++; }
+        d.push({ x: [x + jit() * 0.6, y + jit() * 0.6], y: lab });
+    }
+    updateShapeInfo();
+    return d;
+}
+function updateShapeInfo() {
+    const el = document.getElementById('shapeInfo');
+    if (el) el.textContent = currentShape ? 'Tvar: ' + currentShape : '';
+}
+
 // ==================== VIZUALIZÁCIA ====================
 const board = document.getElementById('board'), bx = board.getContext('2d');
 const netcv = document.getElementById('netcv'), nx = netcv.getContext('2d');
-const GRID = 64;
+const GRID = 72;
 let gridImg = bx.createImageData(GRID, GRID);
+const _tmp = document.createElement('canvas'); _tmp.width = _tmp.height = GRID;   // cache (netvor plátno každý snímok)
+const _tmpCtx = _tmp.getContext('2d');
 
 function toPx(v) { return (v + 1) / 2 * board.width; }   // doména [-1,1] → pixely
 
@@ -238,10 +332,9 @@ function drawBoard() {
         data[i + 3] = 235;
     }
     // priblíž mriežku na celé plátno (vyhladene)
-    const tmp = document.createElement('canvas'); tmp.width = GRID; tmp.height = GRID;
-    tmp.getContext('2d').putImageData(gridImg, 0, 0);
+    _tmpCtx.putImageData(gridImg, 0, 0);
     bx.imageSmoothingEnabled = true;
-    bx.drawImage(tmp, 0, 0, board.width, board.height);
+    bx.drawImage(_tmp, 0, 0, board.width, board.height);
     // dátové body
     for (const s of dataset) {
         bx.beginPath();
